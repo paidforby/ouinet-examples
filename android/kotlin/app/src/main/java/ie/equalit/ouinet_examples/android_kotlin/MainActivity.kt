@@ -1,5 +1,6 @@
 package ie.equalit.ouinet_examples.android_kotlin
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -8,8 +9,7 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import ie.equalit.ouinet.Config
-import ie.equalit.ouinet.Ouinet
+import ie.equalit.ouinet.*
 import okhttp3.*
 import java.io.FileInputStream
 import java.io.FileNotFoundException
@@ -28,8 +28,8 @@ import java.util.concurrent.Executors
 import javax.net.ssl.*
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var ouinet: Ouinet
     lateinit var ouinetDir: String
+    private lateinit var ouinetBackground : OuinetBackground
     private val TAG = "OuinetTester"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,19 +39,66 @@ class MainActivity : AppCompatActivity() {
         val get = findViewById<Button>(R.id.get)
         get.setOnClickListener{ getURL(get) }
 
-        var config = Config.ConfigBuilder(this)
+        val ouinetConfig = Config.ConfigBuilder(this)
             .setCacheType("bep5-http")
             .setTlsCaCertStorePath("file:///android_asset/cacert.pem")
             .setCacheHttpPubKey(BuildConfig.CACHE_PUB_KEY)
             .setInjectorCredentials(BuildConfig.INJECTOR_CREDENTIALS)
             .setInjectorTlsCert(BuildConfig.INJECTOR_TLS_CERT)
             .build()
-        ouinetDir = config.ouinetDirectory
+        ouinetDir = ouinetConfig.ouinetDirectory
 
-        ouinet = Ouinet(this, config)
-        ouinet.start()
+        val notificationConfig = NotificationConfig.Builder(this)
+            .setHomeActivity("$packageName.$localClassName")
+            .setNotificationIcons(
+                statusIcon = R.drawable.ic_launcher_foreground,
+                //homeIcon = R.drawable.ic_globe_pm,
+                //clearIcon = R.drawable.ic_cancel_pm
+            )
+            /*
+            .disableStatusUpdate(true)
+            .setChannelName(getString(R.string.notification_channel_name)
+            .setNotificationText(
+                title = getString(R.string.notification_title),
+                description = getString(R.string.notification_description),
+                homeText = getString(R.string.notification_home_description),
+                clearText = getString(R.string.notification_clear_description),
+                confirmText = getString(R.string.notification_clear_do_description),
+            )
+            .setUpdateInterval(3000)
+            */
+            .build()
 
-        Executors.newFixedThreadPool(1).execute(Runnable { this.updateOuinetState() })
+        ouinetBackground = OuinetBackground.Builder(this)
+            .setOuinetConfig(ouinetConfig)
+            .setNotificationConfig(notificationConfig)
+            //.setOnNotificationTappedListener { onTapped() }
+            //.setOnConfirmTappedListener { onClear() }
+            .build()
+
+        ouinetBackground.startup()
+
+        val restart = findViewById<Button>(R.id.restart)
+        restart.setOnClickListener{ restartOuinet() }
+
+        Executors.newFixedThreadPool(1).execute(Runnable { updateOuinetState() })
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        if(intent?.hasExtra(OuinetNotification.FROM_NOTIFICATION_EXTRA) == true){
+           Log.i(TAG, "$localClassName started from notification")
+        }
+    }
+
+    private fun onTapped() {
+        Log.d(TAG, "Trying onTapped")
+        ouinetBackground.shutdown(false)
+    }
+
+    private fun onClear() {
+        Log.d(TAG, "Trying onClose")
+        ouinetBackground.shutdown(true)
     }
 
     private fun updateOuinetState() {
@@ -62,9 +109,18 @@ class MainActivity : AppCompatActivity() {
             } catch (e: InterruptedException) {
                 e.printStackTrace()
             }
-            val state = ouinet.state.toString()
-            runOnUiThread { ouinetState.text = "State: $state" }
+            val state = ouinetBackground.getState()
+            runOnUiThread { ouinetState.text = getString(R.string.state, state) }
         }
+    }
+
+    private fun restartOuinet(){
+        /* Restarted ouinet inside of a thread to prevent UI hanging,
+         * because the stop method is a blocking function */
+        Thread(Runnable {
+            ouinetBackground.stop()
+            ouinetBackground.start()
+        }).start()
     }
 
     fun getURL(view: View?) {
@@ -115,7 +171,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getOuinetHttpClient(): OkHttpClient {
-        return try {
+        try {
             val trustManagers: Array<TrustManager> = getOuinetTrustManager()
 
             val builder = OkHttpClient.Builder()
@@ -172,7 +228,7 @@ class MainActivity : AppCompatActivity() {
             IOException::class
         )
         private val keyStore: KeyStore
-            private get() {
+            get() {
                 val keyStore = KeyStore.getInstance(KeyStore.getDefaultType())
                 keyStore.load(null, null)
                 keyStore.setCertificateEntry("ca", certificateAuthority)
@@ -181,7 +237,7 @@ class MainActivity : AppCompatActivity() {
 
         @get:Throws(CertificateException::class)
         private val certificateAuthority: Certificate?
-            private get() {
+            get() {
                 var caInput: InputStream? = null
                 try {
                     caInput = FileInputStream(ouinetDir + "/ssl-ca-cert.pem")

@@ -3,4 +3,13 @@
     <string name="url_example">https://censorship.no</string>
     <string name="get">Get</string>
     <string name="app_title">Ouinet Tester</string>
+    <string name="state">State: %1$s</string>
+    <string name="restart">Restart Ouinet</string>
+
+    <string name="notification_channel_name">Ouinet Service</string>
+    <string name="notification_title">Ouinet Tester</string>
+    <string name="notification_description">STOP NOW</string>
+    <string name="notification_home_description">Open</string>
+    <string name="notification_clear_description">Clear&#9888;</string>
+    <string name="notification_clear_do_description">OK</string>
 </resources>

@@ -35,6 +35,15 @@
                 android:textSize="16sp"
                 />
 
+        <Button
+            android:id="@+id/restart"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_margin="10dp"
+            android:text="@string/restart"
+            />
+
         <EditText
                 android:id="@+id/url"
                 android:layout_width="321dp"
@@ -53,6 +62,7 @@
                 android:layout_margin="10dp"
                 android:text="@string/get"
                 />
+
 
         <TextView
                 android:id="@+id/log_viewer"
